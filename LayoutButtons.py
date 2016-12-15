@@ -16,18 +16,19 @@ class LayoutButtons(ScriptedLoadableModule):
 
   def __init__(self, parent):
     ScriptedLoadableModule.__init__(self, parent)
-    self.parent.title = "LayoutButtons" # TODO make this more human readable by adding spaces
+    self.parent.title = "LayoutButtons"
     self.parent.categories = ["Examples"]
     self.parent.dependencies = ["SlicerProstate"]
     self.parent.contributors = ["Christian Herz (SPL)"]
     self.parent.helpText = """
-    This is an example of scripted loadable module bundled in an extension.
-    It performs a simple thresholding on the input volume and optionally captures a screenshot.
+    This extensions provides an user interface with buttons the same way as the Slicer slice
+    views are aligned. Users can click a button and select a foreground/background volume
+    to be displayed in the associated slice view.
     """
     self.parent.acknowledgementText = """
-    This file was originally developed by Jean-Christophe Fillion-Robin, Kitware Inc.
-    and Steve Pieper, Isomics, Inc. and was partially funded by NIH grant 3P41RR013218-12S1.
-""" # replace with organization, grant and thanks.
+    This work was supported in part by the National Cancer Institute funding to the
+    Quantitative Image Informatics for Cancer Research (QIICR) (U24 CA180918).
+    """ # replace with organization, grant and thanks.
 
 
 class LayoutButtonsWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
@@ -38,7 +39,6 @@ class LayoutButtonsWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
   def __init__(self, parent=None):
     ScriptedLoadableModuleWidget.__init__(self, parent)
     self.buttons = []
-    self.logic = LayoutButtonsLogic()
     self.layoutLogic = self.layoutManager.layoutLogic()
     self.lNode = self.layoutLogic.GetLayoutNode()
 
@@ -110,14 +110,14 @@ class LayoutButtonsWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
     actionGroup.setExclusive(True)
 
     _, cNode = self.getCompositeNodeAndWidgetByName(menu.name)
-    for image in [None]+self.getAvailableImages():
-      action = qt.QAction(image.GetName() if image else "None", actionGroup)
+    for volume in [None]+self.getAvailableScalarVolumes():
+      action = qt.QAction(volume.GetName() if volume else "None", actionGroup)
       subMenuBackground.addAction(action)
       actionGroup.addAction(action)
       action.setCheckable(True)
-      action.triggered.connect(lambda triggered, l=layer, n=menu.name,v=image: self.onImageSelectedFromMenu(l,n,v))
+      action.triggered.connect(lambda triggered, l=layer, n=menu.name,v=volume: self.onImageSelectedFromMenu(l,n,v))
       currentVolumeID = getattr(cNode, "Get{}VolumeID".format(layer))()
-      imageID = image.GetID() if image else image
+      imageID = volume.GetID() if volume else volume
       if currentVolumeID == imageID:
         action.setChecked(True)
 
@@ -130,7 +130,7 @@ class LayoutButtonsWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
     widget = self.layoutManager.sliceWidget(name)
     return widget, widget.mrmlSliceCompositeNode()
 
-  def getAvailableImages(self):
+  def getAvailableScalarVolumes(self):
     # TODO: override this for setting specific images only
     return slicer.util.getNodesByClass("vtkMRMLScalarVolumeNode")
 
@@ -149,17 +149,3 @@ class LayoutButtonsWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
   def onLayoutChanged(self):
     self.removeLayoutButtons()
     self.addLayoutButtons()
-
-
-class LayoutButtonsLogic(ScriptedLoadableModuleLogic):
-  """This class should implement all the actual
-  computation done by your module.  The interface
-  should be such that other python code can import
-  this class and make use of the functionality without
-  requiring an instance of the Widget.
-  Uses ScriptedLoadableModuleLogic base class, available at:
-  https://github.com/Slicer/Slicer/blob/master/Base/Python/slicer/ScriptedLoadableModule.py
-  """
-
-  def __init__(self, parent=None):
-    ScriptedLoadableModuleLogic.__init__(self, parent)
