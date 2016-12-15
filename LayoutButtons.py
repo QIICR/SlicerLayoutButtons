@@ -53,36 +53,42 @@ class LayoutButtonsWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
     self.buttonWidget.setLayout(qt.QVBoxLayout())
     self.addLayoutButtons()
     self.layout.addWidget(self.buttonWidget)
-
+    self.layout.addStretch(1)
     self.setupConnections()
 
   def addLayoutButtons(self):
     root = ET.fromstring(self.lNode.GetCurrentLayoutDescription())
     assert root.tag == "layout"
-    self.buttonLayoutGroup = self.iterateLayout(root)
+    self.buttonLayoutGroup = self.createLayoutFromDescription(root)
     self.buttonWidget.layout().addWidget(self.buttonLayoutGroup)
 
-  def iterateLayout(self, layout):
+  def createLayoutFromDescription(self, layout):
     widget = self.createVLayout([]) if layout.get("type") == "vertical" else self.createHLayout([])
     widget.setStyleSheet(".QWidget{border: 1px solid black;}")
     for item in layout.getchildren():
       for child in item.getchildren():
         if child.tag == "layout":
-          element = self.iterateLayout(child)
+          widget.layout().addWidget(self.createLayoutFromDescription(child))
         elif child.tag == "view":
           name = child.get("singletontag")
           viewClass = child.get("class")
           isSliceNode = viewClass not in ["vtkMRMLChartViewNode", "vtkMRMLViewNode"]
-          element = self.createButton(name, name=name,
+          color = self.getColorFromProperties(child)
+          button = self.createButton(name, name=name,
                                       enabled=isSliceNode)
-
-          self.buttons.append(element)
+          if color:
+            button.setStyleSheet("QPushButton{background-color:%s;}" % color)
+          self.buttons.append(button)
           if isSliceNode:
-            self.addMenu(element)
-        else:
-          raise ValueError("%s unknown for parsing layout" % child.tag)
-        widget.layout().addWidget(element)
+            self.addMenu(button)
+          widget.layout().addWidget(button)
     return widget
+
+  def getColorFromProperties(self, element):
+    for elemProp in element.getchildren():
+      if elemProp.get("name") == "viewcolor":
+        return elemProp.text
+    return None
 
   def addMenu(self, button):
     menu = qt.QMenu(button)
@@ -110,7 +116,6 @@ class LayoutButtonsWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
       action.triggered.connect(lambda triggered, l=layer, n=menu.name,v=image: self.onImageSelectedFromMenu(l,n,v))
       currentVolumeID = getattr(cNode, "Get{}VolumeID".format(layer))()
       imageID = image.GetID() if image else image
-      print "{} == {}".format(currentVolumeID, imageID)
       if currentVolumeID == imageID:
         action.setChecked(True)
 
@@ -139,10 +144,8 @@ class LayoutButtonsWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
     self.layoutManager.layoutChanged.connect(self.onLayoutChanged)
 
   def onLayoutChanged(self):
-    print "layout changed"
     self.removeLayoutButtons()
     self.addLayoutButtons()
-    # self.logic
 
 
 class LayoutButtonsLogic(ScriptedLoadableModuleLogic):
