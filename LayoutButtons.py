@@ -76,6 +76,7 @@ class LayoutButtonsWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
           color = self.getColorFromProperties(child)
           button = self.createButton(name, name=name,
                                       enabled=isSliceNode)
+          button.setSizePolicy(qt.QSizePolicy.Minimum, qt.QSizePolicy.Minimum)
           if color:
             button.setStyleSheet("QPushButton{background-color:%s;}" % color)
           self.buttons.append(button)
