@@ -70,20 +70,21 @@ class LayoutButtonsWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
         if child.tag == "layout":
           widget.layout().addWidget(self.createLayoutFromDescription(child))
         elif child.tag == "view":
-          name = child.get("singletontag")
-          viewClass = child.get("class")
-          isSliceNode = viewClass not in ["vtkMRMLChartViewNode", "vtkMRMLViewNode"]
-          color = self.getColorFromProperties(child)
-          button = self.createButton(name, name=name,
-                                      enabled=isSliceNode)
-          button.setSizePolicy(qt.QSizePolicy.Minimum, qt.QSizePolicy.Minimum)
-          if color:
-            button.setStyleSheet("QPushButton{background-color:%s;}" % color)
-          self.buttons.append(button)
-          if isSliceNode:
-            self.addMenu(button)
+          button = self.createButtonForView(child)
           widget.layout().addWidget(button)
     return widget
+
+  def createButtonForView(self, child):
+    name = child.get("singletontag")
+    viewClass = child.get("class")
+    isSliceNode = viewClass not in ["vtkMRMLChartViewNode", "vtkMRMLViewNode"]
+    button = self.createButton(name, name=name, enabled=isSliceNode)
+    button.setSizePolicy(qt.QSizePolicy.Minimum, qt.QSizePolicy.Minimum)
+    button.setStyleSheet("QPushButton{background-color:%s;}" % self.getColorFromProperties(child))
+    self.buttons.append(button)
+    if isSliceNode:
+      self.addMenu(button)
+    return button
 
   def getColorFromProperties(self, element):
     for elemProp in element.getchildren():
@@ -108,7 +109,7 @@ class LayoutButtonsWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
     actionGroup = qt.QActionGroup(menu)
     actionGroup.setExclusive(True)
 
-    cNode = self.getCompositeNodeByName(menu.name)
+    _, cNode = self.getCompositeNodeAndWidgetByName(menu.name)
     for image in [None]+self.getAvailableImages():
       action = qt.QAction(image.GetName() if image else "None", actionGroup)
       subMenuBackground.addAction(action)
@@ -121,12 +122,13 @@ class LayoutButtonsWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
         action.setChecked(True)
 
   def onImageSelectedFromMenu(self, layer, viewName, volume):
-    cNode = self.getCompositeNodeByName(viewName)
+    widget, cNode = self.getCompositeNodeAndWidgetByName(viewName)
     getattr(cNode, "Set{}VolumeID".format(layer))(volume.GetID() if volume else None)
+    widget.sliceLogic().FitSliceToAll()
 
-  def getCompositeNodeByName(self, name):
+  def getCompositeNodeAndWidgetByName(self, name):
     widget = self.layoutManager.sliceWidget(name)
-    return widget.mrmlSliceCompositeNode()
+    return widget, widget.mrmlSliceCompositeNode()
 
   def getAvailableImages(self):
     # TODO: override this for setting specific images only
