@@ -80,7 +80,7 @@ class LayoutButtonsWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
     isSliceNode = viewClass not in ["vtkMRMLChartViewNode", "vtkMRMLViewNode"]
     button = self.createButton(name, name=name, enabled=isSliceNode)
     button.setSizePolicy(qt.QSizePolicy.Minimum, qt.QSizePolicy.Minimum)
-    button.setStyleSheet("QPushButton{background-color:%s;}" % self.getColorFromProperties(child))
+    button.setStyleSheet("QPushButton,QMenu{background-color:%s;}" % self.getColorFromProperties(child))
     self.buttons.append(button)
     if isSliceNode:
       self.addMenu(button)
