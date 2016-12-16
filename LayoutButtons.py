@@ -62,7 +62,7 @@ class LayoutButtonsWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
       elif not hasattr(slicer, volumeClass):
         raise ValueError("VolumeClass {} is not valid or doesn't exist.".format(volumeClass))
     self._layerNameVolumeClassPairs = dictionary
-    self.refresh()
+    self.onLayoutChanged()
 
   def getCompositeGetterNameForLayer(self, layerName):
     return "Get{}VolumeID".format(layerName)
@@ -76,7 +76,7 @@ class LayoutButtonsWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
     self.lNode = self.layoutLogic.GetLayoutNode()
 
     self.fitSliceToAll = False
-    self.truncateLength = 20
+    self.truncateLength = 10
 
     self._layerNameVolumeClassPairs = self._AVAILABLE_LAYERS
     self._buttons = []
@@ -84,7 +84,7 @@ class LayoutButtonsWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
 
   def setTruncateLength(self, length):
     self.truncateLength = length
-    self.refresh()
+    self.onLayoutChanged()
 
   def _setupPropertyNames(self):
     self._propertyNames = ["fitSliceToAll", "truncateLength", "layerNameVolumeClassPairs"]
@@ -107,8 +107,11 @@ class LayoutButtonsWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
     return [{"attributeName": name, "value": getattr(self, name)} for name in self._propertyNames]
 
   def cleanup(self):
-    self.layoutManager.layoutChanged.disconnect(self.refresh)
+    self.layoutManager.layoutChanged.disconnect(self.onLayoutChanged)
     self.removeLayoutButtons()
+
+  def enter(self):
+    self.onLayoutChanged()
 
   def setup(self):
     ScriptedLoadableModuleWidget.setup(self)
@@ -146,6 +149,8 @@ class LayoutButtonsWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
       self.compositeObservers[cNode] = cNode.AddObserver(vtk.vtkCommand.ModifiedEvent, self.onCompositeNodeModified)
 
   def onCompositeNodeModified(self, caller, event):
+    # if not self.parent.isVisible():
+    #   return
     button = self.getButton(caller.GetSingletonTag())
     self.generateName(button)
 
@@ -162,31 +167,56 @@ class LayoutButtonsWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
   def createButtonForView(self, child):
     name = child.get("singletontag")
     viewClass = child.get("class")
-    isSliceNode = viewClass not in ["vtkMRMLChartViewNode", "vtkMRMLViewNode"]
+    isSliceNode = viewClass not in ["vtkMRMLChartViewNode", "vtkMRMLViewNode", "vtkMRMLTableViewNode"]
     button = self.createButton(name, name=name, enabled=isSliceNode)
-    button.setSizePolicy(qt.QSizePolicy.Minimum, qt.QSizePolicy.Minimum)
     button.setStyleSheet("QPushButton,QMenu{background-color:%s;}" % self.getColorFromProperties(child))
     self._buttons.append(button)
+    self.setElementSizePolicy(button)
     if isSliceNode:
       self.generateName(button)
       self.addMenu(button)
     return button
 
+  def setElementSizePolicy(self, element):
+    sizePolicy = qt.QSizePolicy(qt.QSizePolicy.Minimum, qt.QSizePolicy.Expanding)
+    sizePolicy.setHorizontalStretch(0)
+    sizePolicy.setVerticalStretch(0)
+    sizePolicy.setHeightForWidth(element.sizePolicy.hasHeightForWidth())
+    element.setSizePolicy(sizePolicy)
+
   def generateName(self, button):
-    text = ""
+    button.text = ""
+    if button.layout():
+      self.removeButtonLabels(button)
+    else:
+      button.setLayout(qt.QVBoxLayout())
+
+    elements = []
     for idx, layerName in enumerate(self._layerNameVolumeClassPairs.keys()):
       _, cNode = self.getWidgetAndCompositeNodeByName(button.name)
       currentVolumeID = getattr(cNode, self.getCompositeGetterNameForLayer(layerName))()
       if idx > 0:
-        text += "\n"
+        # TODO: add vertical line
+        pass
       if currentVolumeID:
         volumeNode = slicer.mrmlScene.GetNodeByID(currentVolumeID)
         volumeName = volumeNode.GetName()
-        text += (volumeName[:self.truncateLength] + '..') if len(volumeName) > self.truncateLength else volumeName
+        text = (volumeName[:self.truncateLength] + '..') if len(volumeName) > self.truncateLength else volumeName
       else:
-        text += "None"
+        text = "None"
+      elements.append(qt.QLabel(text))
+    button.layout().setSizeConstraint(qt.QLayout.SetMinimumSize)
+    self.setElementSizePolicy(button)
+    widget = self.createVLayout(elements)
+    widget.setStyleSheet("QWidget{border: 0px solid black;}")
+    button.layout().addWidget(widget)
 
-    button.setText(text)
+  def removeButtonLabels(self, button):
+    for child in [c for c in button.children() if isinstance(c, qt.QWidget)]:
+      try:
+        child.delete()
+      except AttributeError:
+        pass
 
   def getColorFromProperties(self, element):
     for elemProp in element.getchildren():
@@ -240,6 +270,7 @@ class LayoutButtonsWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
   def removeLayoutButtons(self):
     self.buttonWidget.layout().removeWidget(self.buttonLayoutGroup)
     self.buttonLayoutGroup.deleteLater()
+    self.removeModifiedObservers()
     self._buttons = []
     self.menus = []
 
@@ -247,9 +278,8 @@ class LayoutButtonsWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
     pass
 
   def setupConnections(self):
-    self.layoutManager.layoutChanged.connect(self.refresh)
+    self.layoutManager.layoutChanged.connect(self.onLayoutChanged)
 
-  def refresh(self):
-    self.removeModifiedObservers()
+  def onLayoutChanged(self):
     self.removeLayoutButtons()
     self.addLayoutButtons()
