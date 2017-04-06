@@ -1,13 +1,8 @@
-import os
-import unittest
-import vtk, qt, ctk, slicer
 from collections import OrderedDict
 from slicer.ScriptedLoadableModule import *
 from SlicerProstateUtils.mixins import *
 
 import xml.etree.ElementTree as ET
-
-import logging
 
 
 class LayoutButtons(ScriptedLoadableModule):
@@ -113,6 +108,9 @@ class LayoutButtonsWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
   def enter(self):
     self.onLayoutChanged()
 
+  def exit(self):
+    self.cleanup()
+
   def setup(self):
     ScriptedLoadableModuleWidget.setup(self)
 
@@ -149,8 +147,6 @@ class LayoutButtonsWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
       self.compositeObservers[cNode] = cNode.AddObserver(vtk.vtkCommand.ModifiedEvent, self.onCompositeNodeModified)
 
   def onCompositeNodeModified(self, caller, event):
-    # if not self.parent.isVisible():
-    #   return
     button = self.getButton(caller.GetSingletonTag())
     self.generateName(button)
 
@@ -268,9 +264,9 @@ class LayoutButtonsWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
     return slicer.util.getNodesByClass(volumeClassName)
 
   def removeLayoutButtons(self):
-    self.buttonWidget.layout().removeWidget(self.buttonLayoutGroup)
-    self.buttonLayoutGroup.deleteLater()
     self.removeModifiedObservers()
+    self.buttonWidget.layout().removeWidget(self.buttonLayoutGroup)
+    self.buttonLayoutGroup.delete()
     self._buttons = []
     self.menus = []
 
@@ -280,6 +276,6 @@ class LayoutButtonsWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget):
   def setupConnections(self):
     self.layoutManager.layoutChanged.connect(self.onLayoutChanged)
 
-  def onLayoutChanged(self):
+  def onLayoutChanged(self, layout=None):
     self.removeLayoutButtons()
     self.addLayoutButtons()
