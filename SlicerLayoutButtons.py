@@ -158,21 +158,26 @@ class SlicerLayoutButtonsWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget)
   def _addLayoutButtons(self):
     root = ET.fromstring(self._layoutNode.GetCurrentLayoutDescription())
     assert root.tag == "layout"
-    self.buttonLayoutGroup = self._createLayoutFromDescription(root)
-    self.buttonWidget.layout().addWidget(self.buttonLayoutGroup)
-    self._setupModifiedObservers()
+    try:
+      self.buttonLayoutGroup = self._createLayoutFromDescription(root)
+      self._setupModifiedObservers()
+    except AttributeError:
+      label = qt.QLabel("Layout not supported")
+      label.setStyleSheet("qproperty-alignment: AlignCenter;")
+      self.buttonLayoutGroup = self.createVLayout([label])
+    finally:
+      self.buttonWidget.layout().addWidget(self.buttonLayoutGroup)
+      self.buttonLayoutGroup.setStyleSheet(".QWidget{border: 1px solid black;}")
 
   def _setupConnections(self):
     self.layoutManager.layoutChanged.connect(self._onLayoutChanged)
 
   def _onLayoutChanged(self, layout=None):
-    print "layout changed"
     self._removeLayoutButtons()
     self._addLayoutButtons()
 
   def _createLayoutFromDescription(self, layout):
     widget = self.createVLayout([]) if layout.get("type") == "vertical" else self.createHLayout([])
-    widget.setStyleSheet(".QWidget{border: 1px solid black;}")
     for item in layout.getchildren():
       for child in item.getchildren():
         if child.tag == "layout":
