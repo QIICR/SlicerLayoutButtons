@@ -17,7 +17,7 @@ class SlicerLayoutButtons(ScriptedLoadableModule):
   def __init__(self, parent):
     ScriptedLoadableModule.__init__(self, parent)
     self.parent.title = "SlicerLayoutButtons"
-    self.parent.categories = ["Examples"]
+    self.parent.categories = ["Informatics"]
     self.parent.dependencies = ["SlicerDevelopmentToolbox"]
     self.parent.contributors = ["Christian Herz (SPL), Andrey Fedorov (SPL)"]
     self.parent.helpText = """
@@ -34,10 +34,27 @@ class SlicerLayoutButtonsWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget)
   """Uses ScriptedLoadableModuleWidget base class, available at:
   https://github.com/Slicer/Slicer/blob/master/Base/Python/slicer/ScriptedLoadableModule.py
   """
+  LABEL_INFO = ("Label", "vtkMRMLLabelMapVolumeNode")
+  FOREGROUND_INFO = ("Foreground", "vtkMRMLScalarVolumeNode")
+  BACKGROUND_INFO = ("Background", "vtkMRMLScalarVolumeNode")
 
-  _AVAILABLE_LAYERS = OrderedDict([("Label", "vtkMRMLLabelMapVolumeNode"),
-                                   ("Foreground", "vtkMRMLScalarVolumeNode"),
-                                   ("Background", "vtkMRMLScalarVolumeNode")])
+  _AVAILABLE_LAYERS = OrderedDict([LABEL_INFO, FOREGROUND_INFO, BACKGROUND_INFO])
+
+  def setDisplayAllLayers(self):
+    self._AVAILABLE_LAYERS = OrderedDict([self.LABEL_INFO, self.FOREGROUND_INFO, self.BACKGROUND_INFO])
+    self._onLayoutChanged()
+
+  def setDisplayLabelOnly(self):
+    self._AVAILABLE_LAYERS = OrderedDict([self.LABEL_INFO])
+    self._onLayoutChanged()
+
+  def setDisplayForegroundOnly(self):
+    self._AVAILABLE_LAYERS = OrderedDict([self.FOREGROUND_INFO])
+    self._onLayoutChanged()
+
+  def setDisplayBackgroundOnly(self):
+    self._AVAILABLE_LAYERS = OrderedDict([self.BACKGROUND_INFO])
+    self._onLayoutChanged()
 
   @property
   def layerNameVolumeClassPairs(self):
@@ -102,7 +119,7 @@ class SlicerLayoutButtonsWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget)
     self._layoutLogic = self.layoutManager.layoutLogic()
     self._layoutNode = self._layoutLogic.GetLayoutNode()
     self._fitSliceToAll = False
-    self._truncateLength = 15
+    self._truncateLength = 10
 
     self._layerNameVolumeClassPairs = self._AVAILABLE_LAYERS
     self._buttons = []
@@ -156,9 +173,8 @@ class SlicerLayoutButtonsWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget)
     self._setupConnections()
 
   def _addLayoutButtons(self):
-    root = ET.fromstring(self._layoutNode.GetCurrentLayoutDescription())
-    assert root.tag == "layout"
     try:
+      root = ET.fromstring(self._layoutNode.GetCurrentLayoutDescription())
       self.buttonLayoutGroup = self._createLayoutFromDescription(root)
       self._setupModifiedObservers()
     except AttributeError:
@@ -174,6 +190,7 @@ class SlicerLayoutButtonsWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget)
 
   def _onLayoutChanged(self, layout=None):
     self._removeLayoutButtons()
+    self._layerNameVolumeClassPairs = self._AVAILABLE_LAYERS
     self._addLayoutButtons()
 
   def _createLayoutFromDescription(self, layout):
@@ -257,19 +274,27 @@ class SlicerLayoutButtonsWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget)
 
   def _onMenuSelected(self, menu):
     menu.clear()
-    for layerName, volumeClass in self._layerNameVolumeClassPairs.iteritems():
-      self._addSubMenu(menu, layerName, volumeClass)
+    if len(self._layerNameVolumeClassPairs) > 1:
+      for layerName, volumeClass in self._layerNameVolumeClassPairs.iteritems():
+        self._addSubMenu(menu, layerName, volumeClass)
+    else:
+      for layerName, volumeClass in self._layerNameVolumeClassPairs.iteritems():
+        self._addActions(menu, layerName, volumeClass)
 
   def _addSubMenu(self, menu, layer, volumeClass):
     subMenuBackground = qt.QMenu(layer, menu)
+    subMenuBackground.name = menu.name
     menu.addMenu(subMenuBackground)
+    self._addActions(subMenuBackground, layer, volumeClass)
+
+  def _addActions(self, menu, layer, volumeClass):
     actionGroup = qt.QActionGroup(menu)
     actionGroup.setExclusive(True)
 
     _, cNode = self.getWidgetAndCompositeNodeByName(menu.name)
     for volume in [None]+self.getAvailableVolumes(volumeClassName=volumeClass):
       action = qt.QAction(volume.GetName() if volume else "None", actionGroup)
-      subMenuBackground.addAction(action)
+      menu.addAction(action)
       actionGroup.addAction(action)
       action.setCheckable(True)
       action.triggered.connect(lambda triggered, l=layer, n=menu.name,v=volume: self._onImageSelectedFromMenu(l, n, v))
