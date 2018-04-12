@@ -153,7 +153,8 @@ class SlicerLayoutButtonsWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget)
     return [{"attributeName": name, "value": getattr(self, name)} for name in self._propertyNames]
 
   def cleanup(self):
-    self.layoutManager.layoutChanged.disconnect(self._onLayoutChanged)
+    if self.layoutManager:
+      self.layoutManager.layoutChanged.disconnect(self._onLayoutChanged)
     self._removeLayoutButtons()
 
   def enter(self):
@@ -187,6 +188,7 @@ class SlicerLayoutButtonsWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget)
 
   def _setupConnections(self):
     self.layoutManager.layoutChanged.connect(self._onLayoutChanged)
+    slicer.app.connect('aboutToQuit()', self.cleanup)
 
   def _onLayoutChanged(self, layout=None):
     self._removeLayoutButtons()
