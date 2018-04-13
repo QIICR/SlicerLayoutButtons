@@ -229,7 +229,7 @@ class SlicerLayoutButtonsWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget)
   def _createButtonForView(self, child):
     name = child.get("singletontag")
     viewClass = child.get("class")
-    isSliceNode = viewClass not in ["vtkMRMLChartViewNode", "vtkMRMLViewNode", "vtkMRMLTableViewNode"]
+    isSliceNode = viewClass == "vtkMRMLSliceNode"
     button = self.createButton(name, name=name, enabled=isSliceNode)
     button.setStyleSheet("QPushButton,QMenu{background-color:%s;}" % self.getColorFromProperties(child))
     self._buttons.append(button)
