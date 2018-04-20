@@ -191,9 +191,12 @@ class SlicerLayoutButtonsWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget)
     slicer.app.connect('aboutToQuit()', self.cleanup)
 
   def _onLayoutChanged(self, layout=None):
-    self._removeLayoutButtons()
-    self._layerNameVolumeClassPairs = self._AVAILABLE_LAYERS
-    self._addLayoutButtons()
+    try:
+      self._removeLayoutButtons()
+      self._layerNameVolumeClassPairs = self._AVAILABLE_LAYERS
+      self._addLayoutButtons()
+    except (AttributeError, ValueError):
+      pass
 
   def _createLayoutFromDescription(self, layout):
     widget = self.createVLayout([]) if layout.get("type") == "vertical" else self.createHLayout([])
@@ -249,7 +252,8 @@ class SlicerLayoutButtonsWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget)
       volumeName = "None"
       if currentVolumeID:
         volumeNode = slicer.mrmlScene.GetNodeByID(currentVolumeID)
-        volumeName = volumeNode.GetName()
+        if volumeNode:
+          volumeName = volumeNode.GetName()
       text = (volumeName[:self._truncateLength] + '..') if len(volumeName) > self._truncateLength else volumeName
       element = qt.QLabel("{}: {}".format(layerName[0], text))
       element.setToolTip("{}: {}".format(layerName[0], volumeName))
@@ -316,8 +320,12 @@ class SlicerLayoutButtonsWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget)
     return widget, widget.mrmlSliceCompositeNode()
 
   def _removeLayoutButtons(self):
-    self.removeModifiedObservers()
-    self.buttonWidget.layout().removeWidget(self.buttonLayoutGroup)
-    self.buttonLayoutGroup.delete()
-    self._buttons = []
-    self.menus = []
+    try:
+      self.removeModifiedObservers()
+      self.buttonWidget.layout().removeWidget(self.buttonLayoutGroup)
+      self.buttonLayoutGroup.delete()
+    except AttributeError:
+      pass
+    finally:
+      self._buttons = []
+      self.menus = []
