@@ -69,7 +69,7 @@ class SlicerLayoutButtonsWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget)
     """
     if not isinstance(dictionary, OrderedDict):
       raise ValueError("Parameter needs to be a %s" % str(OrderedDict))
-    for layerName, volumeClass in dictionary.iteritems():
+    for layerName, volumeClass in dictionary.items():
       getterName = self.getCompositeGetterNameForLayer(layerName)
       if not hasattr(slicer.vtkMRMLSliceCompositeNode, getterName):
         raise ValueError("{0} is not valid. Method {1} does not exist in {2}".format(layerName, getterName,
@@ -163,6 +163,10 @@ class SlicerLayoutButtonsWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget)
   def exit(self):
     self.cleanup()
 
+  def onReload(self):
+    self.cleanup()
+    super(SlicerLayoutButtonsWidget, self).onReload()
+
   def setup(self):
     ScriptedLoadableModuleWidget.setup(self)
 
@@ -178,7 +182,8 @@ class SlicerLayoutButtonsWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget)
       root = ET.fromstring(self._layoutNode.GetCurrentLayoutDescription())
       self.buttonLayoutGroup = self._createLayoutFromDescription(root)
       self._setupModifiedObservers()
-    except AttributeError:
+    except AttributeError as exc:
+      print(exc)
       label = qt.QLabel("Layout not supported")
       label.setStyleSheet("qproperty-alignment: AlignCenter;")
       self.buttonLayoutGroup = self.createVLayout([label])
@@ -218,6 +223,7 @@ class SlicerLayoutButtonsWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget)
   def onCompositeNodeModified(self, caller, event):
     button = self.getButton(caller.GetSingletonTag())
     self._generateName(button)
+    slicer.app.processEvents()
 
   def getButton(self, viewName):
     return next((b for b in self._buttons if b.name == viewName), None)
@@ -225,7 +231,7 @@ class SlicerLayoutButtonsWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget)
   def removeModifiedObservers(self):
     if not hasattr(self, "compositeObservers"):
       self.compositeObservers = {}
-    for cNode, tag in self.compositeObservers.iteritems():
+    for cNode, tag in self.compositeObservers.items():
       cNode.RemoveObserver(tag)
     self.compositeObservers = {}
 
@@ -281,10 +287,10 @@ class SlicerLayoutButtonsWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget)
   def _onMenuSelected(self, menu):
     menu.clear()
     if len(self._layerNameVolumeClassPairs) > 1:
-      for layerName, volumeClass in self._layerNameVolumeClassPairs.iteritems():
+      for layerName, volumeClass in self._layerNameVolumeClassPairs.items():
         self._addSubMenu(menu, layerName, volumeClass)
     else:
-      for layerName, volumeClass in self._layerNameVolumeClassPairs.iteritems():
+      for layerName, volumeClass in self._layerNameVolumeClassPairs.items():
         self._addActions(menu, layerName, volumeClass)
 
   def _addSubMenu(self, menu, layer, volumeClass):
