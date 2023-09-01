@@ -97,7 +97,7 @@ class SlicerLayoutButtonsWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget)
 
   @staticmethod
   def getColorFromProperties(element):
-    for elemProp in element.getchildren():
+    for elemProp in element:
       if elemProp.get("name") == "viewcolor":
         return elemProp.text
     return None
@@ -205,8 +205,8 @@ class SlicerLayoutButtonsWidget(ModuleWidgetMixin, ScriptedLoadableModuleWidget)
 
   def _createLayoutFromDescription(self, layout):
     widget = self.createVLayout([]) if layout.get("type") == "vertical" else self.createHLayout([])
-    for item in layout.getchildren():
-      for child in item.getchildren():
+    for item in layout:
+      for child in item:
         if child.tag == "layout":
           widget.layout().addWidget(self._createLayoutFromDescription(child))
         elif child.tag == "view":
